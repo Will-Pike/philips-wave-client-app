@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Philips Wave Client App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Philips Wave Reboot Tool</h1>
+        <div class="section">
+            <label for="clients">Choose a client:</label>
+            <select id="clients">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+        <div class="section">
+            <label for="locations">Choose a location:</label>
+            <select id="locations">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+        <div class="section">
+            <label for="devices">Devices at this location:</label>
+            <div id="devicesContainer">
+                <!-- Checkboxes will be populated dynamically -->
+            </div>
+        </div>
+        <button id="rebootDevices">Reboot Selected Devices</button>
+        <div id="logo">
+            <img src="https://triggerpointmedia.s3.us-east-2.amazonaws.com/Logos/TPM+Powered+By+logo+.png" alt="Powered by TPM" class="powered-by-logo">
+        </div>
+        <p class="footer">© 2025 Trigger Point Media</p>
+        <p class="footer">Version: 1.0.0</p>
+    </div>
+    <div id="loadingSpinner" class="spinner" style="display:none;">
+      <div class="double-bounce1"></div>
+      <div class="double-bounce2"></div>
+      <div style="text-align:center; margin-top:10px; color:#555;">Loading device info...</div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

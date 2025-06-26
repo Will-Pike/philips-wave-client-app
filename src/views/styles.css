@@ -1,0 +1,121 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(120deg, #f5f5f5 0%, #afafaf 100%);
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    color: #272727;
+    text-align: center;
+    margin-bottom: 32px;
+    letter-spacing: 1px;
+}
+
+.container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: #fff;
+    padding: 32px 28px 24px 28px;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(146, 195, 68, 0.12);
+}
+
+.select-client,
+.select-device {
+    margin-bottom: 20px;
+}
+
+button {
+    background-color: #92c344;
+    color: white;
+    font-weight: bold;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 1vh;
+    font-size: 1rem;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #cddc39;
+    margin-top: 6px;
+    margin-bottom: 16px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background-color: #5a7d1a;
+}
+
+#logo img{
+    width: 8vw;
+    align-items: center;
+    margin-left: 37%;
+}
+.footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #777;
+    font-size: small;
+}
+.section {
+    margin-bottom: 24px;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    position: relative;
+    margin: 30px auto 10px auto;
+}
+.double-bounce1, .double-bounce2 {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: #92c344;
+    opacity: 0.6;
+    position: absolute;
+    top: 0;
+    left: 0;
+    animation: bounce 2.0s infinite ease-in-out;
+}
+.double-bounce2 {
+    animation-delay: -1.0s;
+}
+@keyframes bounce {
+    0%, 100% { transform: scale(0.0); }
+    50% { transform: scale(1.0); }
+}
+
+.section label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+    display: block;
+}
+
+select, button {
+    font-size: 1rem;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #cddc39;
+    margin-top: 6px;
+    margin-bottom: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#devicesContainer label {
+    padding: 6px 0;
+    display: flex;
+    align-items: center;
+    font-size: 1rem;
+}
+
+#devicesContainer input[type="checkbox"] {
+    margin-right: 10px;
+    accent-color: #92c344;
+}

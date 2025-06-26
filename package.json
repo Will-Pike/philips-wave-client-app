@@ -1,0 +1,17 @@
+{
+  "name": "philips-wave-client-app",
+  "version": "1.0.0",
+  "description": "A Node.js application for managing Philips Wave clients and devices.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "axios": "^0.21.1",
+    "express": "^4.17.1",
+    "node-fetch": "^2.7.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
