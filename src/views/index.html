@@ -8,31 +8,42 @@
 </head>
 <body>
     <div class="container">
-        <h1>Philips Wave Reboot Tool</h1>
-        <div class="section">
-            <label for="clients">Choose a client:</label>
-            <select id="clients">
-                <!-- Options will be populated dynamically -->
-            </select>
+        <!-- Login Form -->
+        <div id="loginSection">
+            <h2>Login</h2>
+            <input type="password" id="passwordInput" placeholder="Enter password" />
+            <button id="loginBtn">Login</button>
+            <div id="loginError" style="color:red; display:none; margin-top:10px;">Incorrect password.</div>
         </div>
-        <div class="section">
-            <label for="locations">Choose a location:</label>
-            <select id="locations">
-                <!-- Options will be populated dynamically -->
-            </select>
-        </div>
-        <div class="section">
-            <label for="devices">Devices at this location:</label>
-            <div id="devicesContainer">
-                <!-- Checkboxes will be populated dynamically -->
+
+        <!-- Main UI -->
+        <div id="mainUI" style="display:none;">
+            <h1>Philips Wave Reboot Tool</h1>
+            <div class="section">
+                <label for="clients">Choose a client:</label>
+                <select id="clients">
+                    <!-- Options will be populated dynamically -->
+                </select>
             </div>
+            <div class="section">
+                <label for="locations">Choose a location:</label>
+                <select id="locations">
+                    <!-- Options will be populated dynamically -->
+                </select>
+            </div>
+            <div class="section">
+                <label for="devices">Devices at this location:</label>
+                <div id="devicesContainer">
+                    <!-- Checkboxes will be populated dynamically -->
+                </div>
+            </div>
+            <button id="rebootDevices">Reboot Selected Devices</button>
+            <div id="logo">
+                <img src="https://triggerpointmedia.s3.us-east-2.amazonaws.com/Logos/TPM+Powered+By+logo+.png" alt="Powered by TPM" class="powered-by-logo">
+            </div>
+            <p class="footer">© 2025 Trigger Point Media</p>
+            <p class="footer">Version: 1.0.0</p>
         </div>
-        <button id="rebootDevices">Reboot Selected Devices</button>
-        <div id="logo">
-            <img src="https://triggerpointmedia.s3.us-east-2.amazonaws.com/Logos/TPM+Powered+By+logo+.png" alt="Powered by TPM" class="powered-by-logo">
-        </div>
-        <p class="footer">© 2025 Trigger Point Media</p>
-        <p class="footer">Version: 1.0.0</p>
     </div>
     <div id="loadingSpinner" class="spinner" style="display:none;">
       <div class="double-bounce1"></div>
@@ -40,5 +51,21 @@
       <div style="text-align:center; margin-top:10px; color:#555;">Loading device info...</div>
     </div>
     <script src="app.js"></script>
+    <script>
+        // Simple client-side login
+        document.getElementById('loginBtn').onclick = function() {
+            const pw = document.getElementById('passwordInput').value;
+            if (pw === 'rj2Y7#jV*5updA') {
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('mainUI').style.display = 'block';
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+            }
+        };
+        // Optional: allow Enter key to submit
+        document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('loginBtn').click();
+        });
+    </script>
 </body>
 </html>
