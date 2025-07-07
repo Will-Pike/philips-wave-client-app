@@ -1,4 +1,7 @@
 const ClientController = require('../controllers/clientController');
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+const { matchSignJetToWave } = require('./matcher');
 
 module.exports = function(app) {
     const controller = new ClientController();
@@ -50,6 +53,28 @@ module.exports = function(app) {
             res.json(displays);
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    });
+
+    app.post('/api/clients/:clientHandle/match-signjet', upload.single('csv'), async (req, res) => {
+        console.log('POST /api/clients/:clientHandle/match-signjet called');
+        const csvPath = req.file.path;
+        try {
+            let waveDevices = req.body.waveDevices;
+            // Defensive: parse if string, validate as array
+            if (typeof waveDevices === 'string') {
+                waveDevices = JSON.parse(waveDevices);
+            }
+            if (!Array.isArray(waveDevices)) {
+                return res.status(400).json({ error: 'waveDevices must be an array' });
+            }
+            console.log('typeof waveDevices:', typeof waveDevices, Array.isArray(waveDevices));
+            const matched = await matchSignJetToWave(csvPath, waveDevices);
+            res.json({ matched });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        } finally {
+            require('fs').unlink(csvPath, () => {});
         }
     });
 };

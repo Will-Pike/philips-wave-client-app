@@ -37,6 +37,12 @@
                     <!-- Checkboxes will be populated dynamically -->
                 </div>
             </div>
+            <div class="section">
+                <label for="signjetCsv">SignJet CSV:</label>
+                <input type="file" id="signjetCsv" accept=".csv" />
+                <button id="matchAndReboot" style="margin-left:10px;">Reboot All Wave-Online/SignJet-Offline</button>
+            </div>
+            <div id="matchResults" style="margin:20px 0; display:none;"></div>
             <button id="rebootDevices">Reboot Selected Devices</button>
             <div id="logo">
                 <img src="https://triggerpointmedia.s3.us-east-2.amazonaws.com/Logos/TPM+Powered+By+logo+.png" alt="Powered by TPM" class="powered-by-logo">
@@ -52,20 +58,20 @@
     </div>
     <script src="app.js"></script>
     <script>
-        // Simple client-side login
-        document.getElementById('loginBtn').onclick = function() {
-            const pw = document.getElementById('passwordInput').value;
-            if (pw === 'rj2Y7#jV*5updA') {
-                document.getElementById('loginSection').style.display = 'none';
-                document.getElementById('mainUI').style.display = 'block';
-            } else {
-                document.getElementById('loginError').style.display = 'block';
-            }
-        };
-        // Optional: allow Enter key to submit
-        document.getElementById('passwordInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') document.getElementById('loginBtn').click();
-        });
+    // Simple client-side login
+    document.getElementById('loginBtn').onclick = function() {
+        const pw = document.getElementById('passwordInput').value;
+        if (pw === 'rj2Y7#jV*5updA') {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('mainUI').style.display = 'block';
+        } else {
+            document.getElementById('loginError').style.display = 'block';
+        }
+    };
+    // Optional: allow Enter key to submit
+    document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('loginBtn').click();
+    });
     </script>
 </body>
 </html>

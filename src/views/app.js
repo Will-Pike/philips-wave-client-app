@@ -4,8 +4,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const devicesContainer = document.getElementById('devicesContainer');
     const rebootBtn = document.getElementById('rebootDevices');
     const loadingSpinner = document.getElementById('loadingSpinner');
+    const signjetCsvInput = document.getElementById('signjetCsv');
+    const matchResults = document.getElementById('matchResults');
+    const matchAndRebootBtn = document.getElementById('matchAndReboot');
 
-    let allDisplays = [];
+    let allDisplays = []; // Store all fetched displays
 
     // Populate clients
     fetch('/api/clients')
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch(`/api/clients/${clientHandle}/displays`)
             .then(res => res.json())
             .then(displays => {
-                allDisplays = displays;
+                allDisplays = displays; // Save for later use
                 // Populate locations dropdown
                 const sitesMap = {};
                 displays.forEach(display => {
@@ -111,5 +114,60 @@ document.addEventListener('DOMContentLoaded', () => {
             // Optionally, show result/displays info
         })
         .catch(() => alert('Failed to send reboot command.'));
+    });
+
+    matchAndRebootBtn.addEventListener('click', () => {
+        const clientHandle = clientsSelect.value;
+        const file = signjetCsvInput.files[0];
+        matchResults.style.display = 'none';
+        matchResults.innerHTML = '';
+        if (!clientHandle || !file) {
+            alert('Please select a client and upload a SignJet CSV.');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('csv', file);
+        formData.append('waveDevices', JSON.stringify(allDisplays)); // Send displays
+
+        console.log('Sending match-signjet request', formData);
+
+        fetch(`/api/clients/${clientHandle}/match-signjet`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.matched && result.matched.length > 0) {
+                // Show count and list
+                matchResults.style.display = 'block';
+                matchResults.innerHTML = `
+                    <div>
+                        <strong>Matched ${result.matched.length} devices:</strong>
+                        <ul>
+                            ${result.matched.map(d => `<li>${d.waveName} (ID: ${d.waveID})</li>`).join('')}
+                        </ul>
+                        <button id="rebootMatchedBtn">Reboot All Matched Devices</button>
+                    </div>
+                `;
+                document.getElementById('rebootMatchedBtn').onclick = function() {
+                    const displayIds = result.matched.map(d => d.waveID);
+                    fetch(`/api/clients/${clientHandle}/reboot`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ displayIds })
+                    })
+                    .then(res => res.json())
+                    .then(() => alert('Reboot command sent!'))
+                    .catch(() => alert('Failed to send reboot command.'));
+                };
+            } else {
+                matchResults.style.display = 'block';
+                matchResults.innerHTML = '<div>No matching devices found.</div>';
+            }
+        })
+        .catch(() => {
+            matchResults.style.display = 'block';
+            matchResults.innerHTML = '<div style="color:red;">Failed to process CSV or match devices.</div>';
+        });
     });
 });
