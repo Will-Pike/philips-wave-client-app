@@ -1,4 +1,5 @@
 const ClientController = require('../controllers/clientController');
+const authController = require('../controllers/authController');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const { matchSignJetToWave } = require('./matcher');
@@ -77,4 +78,6 @@ module.exports = function(app) {
             require('fs').unlink(csvPath, () => {});
         }
     });
+
+    app.post('/api/login', authController.login);
 };

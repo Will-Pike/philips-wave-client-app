@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const clientsSelect = document.getElementById('clients');
     const locationsSelect = document.getElementById('locations');
     const devicesContainer = document.getElementById('devicesContainer');
     const rebootBtn = document.getElementById('rebootDevices');
@@ -7,35 +6,105 @@ document.addEventListener('DOMContentLoaded', () => {
     const signjetCsvInput = document.getElementById('signjetCsv');
     const matchResults = document.getElementById('matchResults');
     const matchAndRebootBtn = document.getElementById('matchAndReboot');
+    const clientLoadingBar = document.getElementById('clientLoadingBar');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const retryDisplaysBtn = document.getElementById('retryDisplaysBtn');
 
     let allDisplays = []; // Store all fetched displays
+    const CLIENT_HANDLE = 'kwik-trip'; // Hardcoded client
 
-    // Populate clients
-    fetch('/api/clients')
-        .then(res => res.json())
-        .then(clients => {
-            clientsSelect.innerHTML = '<option value="">Select a client</option>';
-            clients.forEach(client => {
-                const option = document.createElement('option');
-                option.value = client.handle;
-                option.textContent = client.name;
-                clientsSelect.appendChild(option);
-            });
+    // TAB HANDLING
+    const locationTab = document.getElementById('locationTab');
+    const signjetTab = document.getElementById('signjetTab');
+    const locationTabContent = document.getElementById('locationTabContent');
+    const signjetTabContent = document.getElementById('signjetTabContent');
+
+    // Add references for enabling/disabling UI
+    const tabsContainer = document.getElementById('tabsContainer');
+
+    // Function to enable UI after devices are loaded
+    function enableUI() {
+        tabsContainer.classList.remove('disabled');
+        locationTabContent.classList.remove('disabled');
+        signjetTabContent.classList.remove('disabled');
+        locationsSelect.disabled = false;
+        rebootBtn.disabled = false;
+        signjetCsvInput.disabled = false;
+        matchAndRebootBtn.disabled = false;
+    }
+
+    locationTab.addEventListener('click', () => {
+        locationTab.classList.add('active');
+        signjetTab.classList.remove('active');
+        locationTabContent.classList.add('active');
+        signjetTabContent.classList.remove('active');
+    });
+
+    signjetTab.addEventListener('click', () => {
+        signjetTab.classList.add('active');
+        locationTab.classList.remove('active');
+        signjetTabContent.classList.add('active');
+        locationTabContent.classList.remove('active');
+    });
+
+    // LOGIN HANDLING
+    const loginBtn = document.getElementById('loginBtn');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginSection = document.getElementById('loginSection');
+    const mainUI = document.getElementById('mainUI');
+    const loginError = document.getElementById('loginError');
+
+    loginBtn.onclick = function() {
+        const pw = passwordInput.value;
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pw })
+        })
+        .then(res => {
+            if (res.ok) return res.json();
+            throw new Error('Login failed');
+        })
+        .then(data => {
+            if (data.success) {
+                loginSection.style.display = 'none';
+                mainUI.style.display = 'block';
+                loginError.style.display = 'none';
+                // Auto-load displays for Kwik Trip
+                fetchDisplaysForClient(CLIENT_HANDLE);
+            } else {
+                loginError.style.display = 'block';
+            }
+        })
+        .catch(() => {
+            loginError.style.display = 'block';
         });
+    };
+    passwordInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') loginBtn.click();
+    });
 
-    // When client changes, populate locations
-    clientsSelect.addEventListener('change', () => {
-        const clientHandle = clientsSelect.value;
+    // Function to fetch displays for the hardcoded client
+    function fetchDisplaysForClient(clientHandle) {
         locationsSelect.innerHTML = '';
         devicesContainer.innerHTML = '';
         if (!clientHandle) return;
-
-        // Show loading indicator
-        devicesContainer.innerHTML = '<p>Loading displays...</p>';
-        loadingSpinner.style.display = 'block';
+        // Show progress bar
+        clientLoadingBar.style.display = 'block';
+        progressBarFill.style.width = '0%';
+        retryDisplaysBtn.style.display = 'none';
+        // Animate progress bar (indeterminate)
+        let progress = 0;
+        let progressInterval = setInterval(() => {
+            progress = (progress + Math.random() * 20) % 100;
+            progressBarFill.style.width = `${progress}%`;
+        }, 400);
         fetch(`/api/clients/${clientHandle}/displays`)
             .then(res => res.json())
             .then(displays => {
+                clearInterval(progressInterval);
+                progressBarFill.style.width = '100%';
+                setTimeout(() => { clientLoadingBar.style.display = 'none'; }, 400);
                 allDisplays = displays; // Save for later use
                 // Populate locations dropdown
                 const sitesMap = {};
@@ -53,10 +122,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 devicesContainer.innerHTML = '';
                 loadingSpinner.style.display = 'none';
+                enableUI(); // Enable UI elements after loading
             })
             .catch(() => {
-                loadingSpinner.style.display = 'none';
+                clearInterval(progressInterval);
+                progressBarFill.style.width = '0%';
+                clientLoadingBar.style.display = 'none';
+                retryDisplaysBtn.style.display = 'inline-block';
             });
+    }
+    retryDisplaysBtn.addEventListener('click', () => {
+        fetchDisplaysForClient(CLIENT_HANDLE);
     });
 
     // When location changes, show checkboxes for devices
@@ -96,14 +172,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle reboot button click
     rebootBtn.addEventListener('click', () => {
-        const clientHandle = clientsSelect.value;
         const checked = devicesContainer.querySelectorAll('input[type="checkbox"]:checked');
         const displayIds = Array.from(checked).map(cb => cb.value);
-        if (!clientHandle || displayIds.length === 0) {
+        if (displayIds.length === 0) {
             alert('Please select at least one device.');
             return;
         }
-        fetch(`/api/clients/${clientHandle}/reboot`, {
+        fetch(`/api/clients/${CLIENT_HANDLE}/reboot`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ displayIds })
@@ -117,12 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     matchAndRebootBtn.addEventListener('click', () => {
-        const clientHandle = clientsSelect.value;
         const file = signjetCsvInput.files[0];
         matchResults.style.display = 'none';
         matchResults.innerHTML = '';
-        if (!clientHandle || !file) {
-            alert('Please select a client and upload a SignJet CSV.');
+        if (!file) {
+            alert('Please upload a SignJet CSV.');
             return;
         }
         const formData = new FormData();
@@ -131,33 +205,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log('Sending match-signjet request', formData);
 
-        fetch(`/api/clients/${clientHandle}/match-signjet`, {
+        fetch(`/api/clients/${CLIENT_HANDLE}/match-signjet`, {
             method: 'POST',
             body: formData
         })
         .then(res => res.json())
         .then(result => {
             if (result.matched && result.matched.length > 0) {
-                // Show count and list
+                // Show count and list with checkboxes
                 matchResults.style.display = 'block';
                 matchResults.innerHTML = `
                     <div>
                         <strong>Matched ${result.matched.length} devices:</strong>
-                        <ul>
-                            ${result.matched.map(d => `<li>${d.waveName} (ID: ${d.waveID})</li>`).join('')}
-                        </ul>
-                        <button id="rebootMatchedBtn">Reboot All Matched Devices</button>
+                        <div style="margin: 10px 0;">
+                            <label style="display: block; margin-bottom: 10px; font-weight: bold;">
+                                <input type="checkbox" id="selectAllMatched" style="margin-right: 8px;" />
+                                Select All
+                            </label>
+                        </div>
+                        <div id="matchedDevicesContainer">
+                            ${result.matched.map(d => `
+                                <label style="display: block; margin-bottom: 5px;">
+                                    <input type="checkbox" class="matched-device" value="${d.waveID}" style="margin-right: 8px;" />
+                                    ${d.waveName} at ${d.waveSite || 'Unknown Location'}
+                                </label>
+                            `).join('')}
+                        </div>
+                        <button id="rebootMatchedBtn" style="margin-top: 15px;">Reboot Selected Devices</button>
                     </div>
                 `;
+                
+                // Handle select all functionality
+                const selectAllCheckbox = document.getElementById('selectAllMatched');
+                const deviceCheckboxes = document.querySelectorAll('.matched-device');
+                
+                selectAllCheckbox.addEventListener('change', function() {
+                    deviceCheckboxes.forEach(checkbox => {
+                        checkbox.checked = this.checked;
+                    });
+                });
+                
+                // Update select all when individual checkboxes change
+                deviceCheckboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', function() {
+                        const allChecked = Array.from(deviceCheckboxes).every(cb => cb.checked);
+                        const noneChecked = Array.from(deviceCheckboxes).every(cb => !cb.checked);
+                        selectAllCheckbox.checked = allChecked;
+                        selectAllCheckbox.indeterminate = !allChecked && !noneChecked;
+                    });
+                });
+                
                 document.getElementById('rebootMatchedBtn').onclick = function() {
-                    const displayIds = result.matched.map(d => d.waveID);
-                    fetch(`/api/clients/${clientHandle}/reboot`, {
+                    const checkedDevices = Array.from(document.querySelectorAll('.matched-device:checked'));
+                    const displayIds = checkedDevices.map(cb => cb.value);
+                    
+                    if (displayIds.length === 0) {
+                        alert('Please select at least one device to reboot.');
+                        return;
+                    }
+                    
+                    fetch(`/api/clients/${CLIENT_HANDLE}/reboot`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ displayIds })
                     })
                     .then(res => res.json())
-                    .then(() => alert('Reboot command sent!'))
+                    .then(() => alert(`Reboot command sent to ${displayIds.length} device(s)!`))
                     .catch(() => alert('Failed to send reboot command.'));
                 };
             } else {
