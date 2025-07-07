@@ -227,12 +227,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             </label>
                         </div>
                         <div id="matchedDevicesContainer">
-                            ${result.matched.map(d => `
+                            ${result.matched.map(d => {
+                                const waveModel = d.waveModel ? ` (${d.waveModel})` : '';
+                                const signjetModel = d.signjetModel ? ` [SignJet: ${d.signjetModel}]` : '';
+                                return `
                                 <label style="display: block; margin-bottom: 5px;">
                                     <input type="checkbox" class="matched-device" value="${d.waveID}" style="margin-right: 8px;" />
-                                    ${d.waveName} at ${d.waveSite || 'Unknown Location'}
+                                    ${d.waveName}${waveModel} at ${d.waveSite || 'Unknown Location'}${signjetModel}
                                 </label>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                         <button id="rebootMatchedBtn" style="margin-top: 15px;">Reboot Selected Devices</button>
                     </div>

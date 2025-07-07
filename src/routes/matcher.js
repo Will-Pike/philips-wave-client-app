@@ -36,6 +36,7 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
         aliasNorm: w.alias ? w.alias.toLowerCase().trim() : '',
         alias: w.alias,
         siteName: w.site ? w.site.name : '',
+        model: w.model || w.deviceModel || w.hardwareModel || '', // Try common model field names
       });
     });
 
@@ -49,12 +50,18 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
       .on('data', row => {
         const loc = row['Location'];
         const dev = row['Device Name'];
+        const model = row['Model'] || row['Device Model'] || ''; // Try common model field names
         const status = (row['Status'] || '').toLowerCase().trim();
         const sn = extractStoreNumber(loc);
         if (status === 'offline') {
         //   console.log('SignJet Location:', loc, '-> store:', sn);
           if (sn && dev) {
-            records.push({ store: sn, signjetName: dev.trim(), signjetNorm: dev.toLowerCase().trim() });
+            records.push({ 
+              store: sn, 
+              signjetName: dev.trim(), 
+              signjetNorm: dev.toLowerCase().trim(),
+              signjetModel: model.trim()
+            });
           }
         }
       })
@@ -94,9 +101,11 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
         matches.push({
           store: rec.store,
           signjetName: rec.signjetName,
+          signjetModel: rec.signjetModel,
           waveName: best.item.alias,
           waveID: best.item.id,
           waveSite: best.item.siteName,
+          waveModel: best.item.model,
           score: percentScore,
         });
       }
