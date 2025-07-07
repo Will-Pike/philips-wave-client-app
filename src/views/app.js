@@ -9,8 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const clientLoadingBar = document.getElementById('clientLoadingBar');
     const progressBarFill = document.getElementById('progressBarFill');
     const retryDisplaysBtn = document.getElementById('retryDisplaysBtn');
+    const locationSearch = document.getElementById('locationSearch');
 
     let allDisplays = []; // Store all fetched displays
+    let allSites = []; // Store all sites for search functionality
     const CLIENT_HANDLE = 'kwik-trip'; // Hardcoded client
 
     // TAB HANDLING
@@ -28,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
         locationTabContent.classList.remove('disabled');
         signjetTabContent.classList.remove('disabled');
         locationsSelect.disabled = false;
+        locationSearch.disabled = false;
         rebootBtn.disabled = false;
         signjetCsvInput.disabled = false;
         matchAndRebootBtn.disabled = false;
@@ -113,13 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         sitesMap[display.site.id] = display.site;
                     }
                 });
-                locationsSelect.innerHTML = '<option value="">Select a location</option>';
-                Object.values(sitesMap).forEach(site => {
-                    const option = document.createElement('option');
-                    option.value = site.id;
-                    option.textContent = site.name;
-                    locationsSelect.appendChild(option);
-                });
+                allSites = Object.values(sitesMap); // Store for search functionality
+                populateLocations(allSites); // Use the new function
                 devicesContainer.innerHTML = '';
                 loadingSpinner.style.display = 'none';
                 enableUI(); // Enable UI elements after loading
@@ -133,6 +131,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     retryDisplaysBtn.addEventListener('click', () => {
         fetchDisplaysForClient(CLIENT_HANDLE);
+    });
+
+    // Location search functionality
+    locationSearch.addEventListener('input', (e) => {
+        populateLocations(allSites, e.target.value);
     });
 
     // When location changes, show checkboxes for devices
@@ -283,4 +286,35 @@ document.addEventListener('DOMContentLoaded', () => {
             matchResults.innerHTML = '<div style="color:red;">Failed to process CSV or match devices.</div>';
         });
     });
+
+    // Function to populate locations with sorting and search
+    function populateLocations(sites, searchTerm = '') {
+        // Sort sites alphanumerically by extracting numbers from the name
+        const sortedSites = sites.sort((a, b) => {
+            const getNumber = (name) => {
+                const match = name.match(/(\d+)/);
+                return match ? parseInt(match[1]) : 0;
+            };
+            const numA = getNumber(a.name);
+            const numB = getNumber(b.name);
+            if (numA !== numB) return numA - numB;
+            return a.name.localeCompare(b.name);
+        });
+
+        // Filter by search term if provided
+        const filteredSites = searchTerm 
+            ? sortedSites.filter(site => 
+                site.name.toLowerCase().includes(searchTerm.toLowerCase())
+              )
+            : sortedSites;
+
+        // Populate dropdown
+        locationsSelect.innerHTML = '<option value="">Select a location</option>';
+        filteredSites.forEach(site => {
+            const option = document.createElement('option');
+            option.value = site.id;
+            option.textContent = site.name;
+            locationsSelect.appendChild(option);
+        });
+    }
 });
