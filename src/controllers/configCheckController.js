@@ -111,7 +111,7 @@ class ConfigCheckController extends ClientController {
                             severity: 'warning',
                             message: 'Signal detection should be disabled or not set',
                             description: expectedConfig.powerSettings.description,
-                            currentValue: signalDetection.toString(),
+                            currentValue: signalDetection !== null && signalDetection !== undefined ? signalDetection.toString() : 'null/undefined',
                             expectedValue: 'false or not set'
                         });
                     }
@@ -164,6 +164,13 @@ class ConfigCheckController extends ClientController {
             
         } catch (error) {
             console.error('Error checking device configuration:', error);
+            console.error('Error stack:', error.stack);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                clientHandle,
+                displayIds
+            });
             throw error;
         }
     }
@@ -176,52 +183,45 @@ class ConfigCheckController extends ClientController {
                     displays {
                         id
                         alias
-                        site {
-                            id
-                            name
-                        }
-                        timeZone {
-                            reported
-                        }
-                        powerSettings {
-                            reported {
-                                signalDetection
-                            }
-                        }
+                        site { id name }
+                        timeZone { reported }
+                        powerSettings { reported { signalDetection } }
                         contentSource {
                             current {
                                 reported {
-                                    ... on InputContentSource {
-                                        source
-                                    }
-                                    ... on AppContentSource {
-                                        activityList
-                                        applicationId
-                                    }
+                                    ... on InputContentSource { source }
+                                    ... on AppContentSource { activityList applicationId }
                                 }
                             }
                         }
-                        power {
-                            reported
-                            desired
-                        }
+                        power { reported desired }
                     }
                 }
             }
         `;
         
         try {
+            console.log('Executing GraphQL query for clientHandle:', clientHandle);
+            console.log('Display IDs requested:', displayIds);
             const data = await waveGraphQL(query);
+            console.log('GraphQL query successful, data received:', !!data);
             
             if (data?.customerByHandle?.displays) {
+                console.log('Total displays found:', data.customerByHandle.displays.length);
                 // Filter to only the requested device IDs
                 const allDevices = data.customerByHandle.displays;
-                return allDevices.filter(device => displayIds.includes(device.id));
+                const filteredDevices = allDevices.filter(device => displayIds.includes(device.id));
+                console.log('Filtered devices count:', filteredDevices.length);
+                return filteredDevices;
             }
             
+            console.log('No displays found in GraphQL response');
             return [];
         } catch (error) {
             console.error('Error fetching device configurations:', error);
+            console.error('GraphQL query was:', query);
+            console.error('Client handle:', clientHandle);
+            console.error('Display IDs:', displayIds);
             throw new Error('Failed to fetch device configurations: ' + error.message);
         }
     }
