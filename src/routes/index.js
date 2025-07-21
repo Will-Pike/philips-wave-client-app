@@ -1,5 +1,6 @@
 const ClientController = require('../controllers/clientController');
 const authController = require('../controllers/authController');
+const ConfigCheckController = require('../controllers/configCheckController');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const { matchSignJetToWave } = require('./matcher');
@@ -76,6 +77,19 @@ module.exports = function(app) {
             res.status(500).json({ error: error.message });
         } finally {
             require('fs').unlink(csvPath, () => {});
+        }
+    });
+
+    app.post('/api/clients/:clientHandle/config-check', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { displayIds, checks } = req.body;
+        
+        try {
+            const configController = new ConfigCheckController();
+            const result = await configController.checkDeviceConfiguration(clientHandle, displayIds, checks);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
         }
     });
 

@@ -117,6 +117,39 @@
       visibility: visible;
       opacity: 1;
     }
+    
+    /* Custom checkbox styling */
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ccc;
+      border-radius: 3px;
+      background: white;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    
+    input[type="checkbox"]:checked {
+      background: #51722c;
+      border-color: #51722c;
+    }
+    
+    input[type="checkbox"]:checked::before {
+      content: "✓";
+      position: absolute;
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      left: 1px;
+      top: -1px;
+    }
+    
+    input[type="checkbox"]:hover {
+      border-color: #51722c;
+    }
     </style>
 </head>
 <body>
@@ -144,6 +177,7 @@
             <div class="tabs disabled" id="tabsContainer">
                 <button class="tab active" id="locationTab">Select by Location</button>
                 <button class="tab" id="signjetTab">Match with SignJet</button>
+                <button class="tab" id="configCheckTab">Config Check</button>
             </div>
 
             <!-- Location Tab Content -->
@@ -177,6 +211,36 @@
                     <button id="matchAndReboot" style="margin-left:10px;" disabled>Match SignJet and Wave devices</button>
                 </div>
                 <div id="matchResults" style="margin:20px 0; display:none;"></div>
+            </div>
+
+            <!-- Config Check Tab Content -->
+            <div id="configCheckTabContent" class="tab-content disabled">
+                <div class="section">
+                    <label>Configuration Validation Settings:</label>
+                    <!-- <p style="color: #2196f3; font-size: 14px; margin: 5px 0 15px 0;">
+                        ✅ <strong>Validation Mode:</strong> Checking devices against Kwik Trip standards based on real device data.
+                    </p> -->
+                    <div style="margin: 10px 0;">
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="checkPowerSchedules" checked style="margin-right: 8px;" />
+                            Validate Power State (should be "ON")
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="checkDefaultSource" checked style="margin-right: 8px;" />
+                            Validate Content Source (SignJet app or CUSTOM)
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="checkTimeZone" checked style="margin-right: 8px;" />
+                            Validate Time Zone (America/Chicago)
+                        </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="checkPowerSettings" checked style="margin-right: 8px;" />
+                            Validate Power Settings (Signal Detection OFF or not set)
+                        </label>
+                    </div>
+                    <button id="runConfigCheck" style="margin-top: 10px;" disabled>Validate Device Configurations</button>
+                </div>
+                <div id="configCheckResults" style="margin:20px 0; display:none;"></div>
             </div>
 
             <div id="logo">
