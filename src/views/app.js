@@ -596,6 +596,17 @@ document.addEventListener('DOMContentLoaded', () => {
         headerDiv.style.cssText = 'margin: 20px 0 15px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;';
         headerDiv.innerHTML = `
             <h3 style="margin: 0 0 10px 0;">Validation Results Summary</h3>
+            
+            <!-- Update Progress Container (moved to top) -->
+            <div id="validationUpdateProgress" style="display: none; margin-bottom: 15px; padding: 15px; background: #e3f2fd; border-radius: 5px; border: 1px solid #2196f3;">
+                <h4 style="margin: 0 0 10px 0;">🔧 Updating Configurations...</h4>
+                <div style="width: 100%; height: 12px; background: #eee; border-radius: 6px; overflow: hidden; margin: 10px 0;">
+                    <div id="validationUpdateProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ff9800 40%, #ffcc02 100%); transition: width 0.4s ease; border-radius: 6px;"></div>
+                </div>
+                <div id="validationUpdateProgressText" style="text-align: center; color: #666; font-size: 13px;"></div>
+                <div id="validationUpdateResults" style="margin-top: 15px;"></div>
+            </div>
+            
             <div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107; margin-bottom: 15px;">
                 <p style="margin: 0 0 10px 0;">
                     <strong>🔧 Configuration Updates Available:</strong> Select devices below to automatically fix their configurations.
@@ -603,11 +614,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button onclick="selectAllValidationDevices()" style="background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
                     ✅ Select All
                 </button>
-                <button onclick="updateSelectedValidationConfigurations()" style="background: #ff9800; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-                    🔧 Update Selected Configurations
-                </button>
-                <button onclick="applyRecommendedSettingsCorrections()" style="background: #9c27b0; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-                    ⚡ Apply Recommended Settings
+                <button onclick="applySmartConfigurationFixes()" style="background: #ff9800; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    🔧 Fix Selected Device Issues
                 </button>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -617,7 +625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option value="location">Location (A-Z)</option>
                         <option value="locationNum">Location (Numerical)</option>
                         <option value="device">Device Name</option>
-                        <option value="warning">Warning Type</option>
+                        <option value="warning">Issue Count</option>
                         <option value="severity">Severity</option>
                     </select>
                 </div>
@@ -648,6 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid #dee2e6;">Severity</th>
                     <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid #dee2e6;">Current Value</th>
                     <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid #dee2e6;">Expected Value</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600; border-bottom: 1px solid #dee2e6; width: 120px;">Action</th>
                 </tr>
             </thead>
             <tbody id="validationTableBody"></tbody>
@@ -656,20 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
         tableContainer.appendChild(table);
         container.appendChild(headerDiv);
         container.appendChild(tableContainer);
-        
-        // Add update progress container
-        const updateProgressContainer = document.createElement('div');
-        updateProgressContainer.id = 'validationUpdateProgress';
-        updateProgressContainer.style.cssText = 'display: none; margin-top: 20px;';
-        updateProgressContainer.innerHTML = `
-            <h4>🔧 Updating Configurations...</h4>
-            <div style="width: 100%; height: 12px; background: #eee; border-radius: 6px; overflow: hidden; margin: 10px 0;">
-                <div id="validationUpdateProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #ff9800 40%, #ffcc02 100%); transition: width 0.4s ease; border-radius: 6px;"></div>
-            </div>
-            <div id="validationUpdateProgressText" style="text-align: center; color: #666; font-size: 13px;"></div>
-            <div id="validationUpdateResults" style="margin-top: 15px;"></div>
-        `;
-        container.appendChild(updateProgressContainer);
         
         // Flatten all issues into table rows with device grouping
         const deviceMap = new Map();
@@ -685,20 +680,20 @@ document.addEventListener('DOMContentLoaded', () => {
             deviceMap.get(device.deviceId).issues.push(...device.issues);
         });
         
+        // Create table rows - one per device instead of per issue
         const tableRows = [];
         deviceMap.forEach(device => {
-            device.issues.forEach(issue => {
-                tableRows.push({
-                    deviceId: device.deviceId,
-                    siteName: device.siteName,
-                    deviceName: device.deviceName,
-                    warningType: issue.type,
-                    severity: issue.severity,
-                    currentValue: issue.currentValue,
-                    expectedValue: issue.expectedValue,
-                    message: issue.message,
-                    deviceIssues: device.issues // Include all issues for this device
-                });
+            tableRows.push({
+                deviceId: device.deviceId,
+                siteName: device.siteName,
+                deviceName: device.deviceName,
+                issueCount: device.issues.length,
+                severestIssue: device.issues.reduce((max, issue) => {
+                    const severityOrder = { 'error': 3, 'warning': 2, 'info': 1 };
+                    return severityOrder[issue.severity] > severityOrder[max.severity] ? issue : max;
+                }),
+                allIssues: device.issues,
+                issuesSummary: device.issues.map(issue => issue.type).join(', ')
             });
         });
         
@@ -713,39 +708,81 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let severityIcon = '⚠️';
                 let severityColor = '#ff9800';
-                if (row.severity === 'error') {
+                if (row.severestIssue.severity === 'error') {
                     severityIcon = '❌';
                     severityColor = '#d32f2f';
-                } else if (row.severity === 'info') {
+                } else if (row.severestIssue.severity === 'info') {
                     severityIcon = 'ℹ️';
                     severityColor = '#2196f3';
                 }
                 
-                const checkboxId = `validationDevice_${row.deviceId}_${index}`;
+                const checkboxId = `validationDevice_${row.deviceId}`;
                 
                 tr.innerHTML = `
                     <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">
                         <input type="checkbox" id="${checkboxId}" class="validation-device-checkbox" 
                                data-device-id="${row.deviceId}" data-device-name="${row.deviceName}" 
-                               data-device-issues='${JSON.stringify(row.deviceIssues)}'>
+                               data-device-issues='${JSON.stringify(row.allIssues)}'>
                     </td>
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">${row.siteName}</td>
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">${row.deviceName}</td>
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">
                         <span style="color: ${severityColor};">${severityIcon}</span>
-                        ${formatWarningType(row.warningType)}
+                        <strong>${row.issueCount} issues:</strong> ${formatIssueTypes(row.issuesSummary)}
+                        <div style="margin-top: 5px;">
+                            <details style="cursor: pointer;">
+                                <summary style="font-size: 12px; color: #666;">Show details</summary>
+                                <ul style="margin: 5px 0 0 15px; font-size: 12px;">
+                                    ${row.allIssues.map(issue => `
+                                        <li style="margin-bottom: 3px;">
+                                            <strong>${formatWarningType(issue.type)}:</strong> ${issue.message}
+                                            <br><span style="color: #666; font-size: 11px;">Current: ${issue.currentValue} | Expected: ${issue.expectedValue}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </details>
+                        </div>
                     </td>
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6; color: ${severityColor}; font-weight: 500;">
-                        ${row.severity.toUpperCase()}
+                        ${row.severestIssue.severity.toUpperCase()}
                     </td>
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6; font-family: monospace; font-size: 14px;">
-                        ${row.currentValue}
+                        ${row.issueCount > 1 ? `${row.issueCount} different values` : row.severestIssue.currentValue}
                     </td>
                     <td style="padding: 10px; border-bottom: 1px solid #dee2e6; font-family: monospace; font-size: 14px;">
-                        ${row.expectedValue}
+                        ${row.issueCount > 1 ? `${row.issueCount} different values` : row.severestIssue.expectedValue}
+                    </td>
+                    <td style="padding: 8px; text-align: center; border-bottom: 1px solid #dee2e6;">
+                        <button class="fix-device-btn" 
+                                data-device-id="${row.deviceId}" 
+                                data-device-name="${row.deviceName}" 
+                                data-device-issues='${JSON.stringify(row.allIssues)}'
+                                style="background: #ff9800; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;"
+                                title="Fix all issues for this device">
+                            🔧 Fix Device
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
+            });
+            
+            // Add event listeners for fix device buttons
+            document.querySelectorAll('.fix-device-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const deviceId = this.dataset.deviceId;
+                    const deviceName = this.dataset.deviceName;
+                    const issues = JSON.parse(this.dataset.deviceIssues);
+                    
+                    console.log('Fix button clicked for:', deviceName, deviceId, issues);
+                    
+                    // Call the global function
+                    if (window.fixSingleDevice) {
+                        window.fixSingleDevice(deviceId, deviceName, issues);
+                    } else {
+                        console.error('fixSingleDevice function not found');
+                        alert('Error: Fix function not available. Please refresh the page.');
+                    }
+                });
             });
         }
         
@@ -763,10 +800,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     case 'device':
                         return a.deviceName.localeCompare(b.deviceName);
                     case 'warning':
-                        return a.warningType.localeCompare(b.warningType);
+                        return a.issueCount - b.issueCount; // Sort by number of issues
                     case 'severity':
                         const severityOrder = { 'error': 0, 'warning': 1, 'info': 2 };
-                        return severityOrder[a.severity] - severityOrder[b.severity];
+                        return severityOrder[a.severestIssue.severity] - severityOrder[b.severestIssue.severity];
                     default:
                         return 0;
                 }
@@ -784,10 +821,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const typeMap = {
                 'timeZone': 'Time Zone',
                 'contentSource': 'Content Source',
+                'defaultContentSource': 'Default Content Source',
                 'powerSettings': 'Power Settings',
-                'powerSchedule': 'Power Schedule'
+                'powerSchedule': 'Power Schedule',
+                'recommendedSettings': 'Recommended Settings',
+                'recommendedSettingsWarning': 'Recommended Settings Warning'
             };
             return typeMap[type] || type;
+        }
+        
+        // Helper function to format issue types summary
+        function formatIssueTypes(issuesSummary) {
+            const types = issuesSummary.split(', ');
+            const uniqueTypes = [...new Set(types)];
+            return uniqueTypes.map(type => formatWarningType(type)).join(', ');
         }
         
         // Initial render with numerical location sorting
@@ -842,27 +889,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (masterCheckbox) masterCheckbox.checked = true;
     };
 
-    window.updateSelectedValidationConfigurations = async function() {
+    // New smart configuration fix function that handles both standard config and recommended settings
+    window.applySmartConfigurationFixes = async function() {
         const checkboxes = document.querySelectorAll('.validation-device-checkbox:checked');
         if (checkboxes.length === 0) {
-            alert('Please select at least one device to update.');
+            alert('Please select at least one device to fix.');
             return;
         }
 
-        // Group by device ID to avoid duplicates
-        const deviceMap = new Map();
+        // Group devices by type of fixes needed
+        const devicesWithConfigIssues = [];
+        const devicesWithRecommendedIssues = [];
+        
         checkboxes.forEach(cb => {
             const deviceId = cb.dataset.deviceId;
-            if (!deviceMap.has(deviceId)) {
-                deviceMap.set(deviceId, {
-                    deviceId,
-                    deviceName: cb.dataset.deviceName,
-                    issues: JSON.parse(cb.dataset.deviceIssues)
-                });
+            const deviceName = cb.dataset.deviceName;
+            const issues = JSON.parse(cb.dataset.deviceIssues);
+            
+            const hasConfigIssues = issues.some(issue => 
+                ['timeZone', 'contentSource', 'defaultContentSource', 'powerSettings', 'powerSchedule'].includes(issue.type)
+            );
+            const hasRecommendedIssues = issues.some(issue => 
+                issue.type === 'recommendedSettings' || issue.type === 'recommendedSettingsWarning'
+            );
+            
+            if (hasConfigIssues) {
+                devicesWithConfigIssues.push({ deviceId, deviceName, issues });
+            }
+            if (hasRecommendedIssues) {
+                devicesWithRecommendedIssues.push({ deviceId, deviceName, issues });
             }
         });
 
-        const selectedDevices = Array.from(deviceMap.values());
+        const totalDevices = devicesWithConfigIssues.length + devicesWithRecommendedIssues.length;
+        if (totalDevices === 0) {
+            alert('No fixable issues found in selected devices.');
+            return;
+        }
 
         // Show progress
         const progressContainer = document.getElementById('validationUpdateProgress');
@@ -872,106 +935,162 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressText = document.getElementById('validationUpdateProgressText');
         const resultsContainer = document.getElementById('validationUpdateResults');
         
-        progressText.textContent = `Starting updates for ${selectedDevices.length} devices...`;
+        progressText.textContent = `Applying fixes to ${totalDevices} devices...`;
         resultsContainer.innerHTML = '';
+        progressBar.style.width = '5%';
 
-        // Helper function to determine required config updates
-        function getRequiredUpdates(issues) {
-            const updates = {};
+        try {
+            let currentProgress = 0;
             
-            issues.forEach(issue => {
-                switch (issue.type) {
-                    case 'timeZone':
-                        updates.timeZone = 'America/Chicago';
-                        break;
-                    case 'contentSource':
-                        updates.contentSource = 'com.digitaltouchsystems.snap';
-                        break;
-                    case 'defaultContentSource':
-                        updates.defaultContentSource = 'HDMI1';
-                        break;
-                    case 'powerSettings':
-                        updates.powerSettings = { signalDetection: false };
-                        break;
-                    case 'powerSchedule':
-                        updates.powerState = 'ON';
-                        break;
+            // Apply configuration fixes first
+            if (devicesWithConfigIssues.length > 0) {
+                progressText.textContent = `Applying configuration fixes to ${devicesWithConfigIssues.length} devices...`;
+                await applyConfigurationFixes(devicesWithConfigIssues, progressBar, progressText, resultsContainer, currentProgress, totalDevices);
+                currentProgress += devicesWithConfigIssues.length;
+            }
+            
+            // Apply recommended settings fixes
+            if (devicesWithRecommendedIssues.length > 0) {
+                progressText.textContent = `Applying recommended settings to ${devicesWithRecommendedIssues.length} devices...`;
+                const deviceIds = devicesWithRecommendedIssues.map(d => d.deviceId);
+                await applyRecommendedSettingsFixes(deviceIds, progressBar, progressText, resultsContainer, currentProgress, totalDevices);
+            }
+            
+            // Complete
+            progressBar.style.width = '100%';
+            progressText.innerHTML = '<span style="color: #4caf50; font-weight: bold;">✅ All Fixes Applied Successfully!</span>';
+            
+            // Add re-validation option
+            resultsContainer.innerHTML += `
+                <div style="text-align: center; margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 5px;">
+                    <p style="margin: 0 0 10px 0;">🔄 All fixes have been applied! Re-run validation to verify the changes.</p>
+                    <button onclick="document.getElementById('runConfigCheck').click()" 
+                            style="background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                        ⚙️ Re-run Full Validation
+                    </button>
+                </div>
+            `;
+            
+        } catch (error) {
+            progressText.innerHTML = `<span style="color: #d32f2f;">❌ Error applying fixes: ${error.message}</span>`;
+        }
+    };
+
+    // Helper function to format device update results (needed by fixSingleDevice)
+    function formatDeviceUpdateResult(deviceName, results, title) {
+        let resultHtml = `
+            <div style="border: 1px solid #4caf50; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #e8f5e8;">
+                <h5 style="margin: 0 0 8px 0; color: #2e7d32;">${title} - ${deviceName}</h5>
+                <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+        `;
+        
+        results.forEach(updateResult => {
+            if (updateResult.success) {
+                resultHtml += `<li style="color: #2e7d32;">✅ ${updateResult.type} updated successfully</li>`;
+            } else {
+                resultHtml += `<li style="color: #d32f2f;">❌ ${updateResult.type} failed: ${updateResult.error}</li>`;
+            }
+        });
+        
+        resultHtml += `</ul></div>`;
+        return resultHtml;
+    }
+
+    // NEW: Helper function to format verified update results with detailed verification
+    function formatVerifiedUpdateResult(deviceName, result, title) {
+        const allSuccess = result.success;
+        const borderColor = allSuccess ? '#4caf50' : '#ff9800';
+        const bgColor = allSuccess ? '#e8f5e8' : '#fff3e0';
+        const titleColor = allSuccess ? '#2e7d32' : '#f57c00';
+        
+        let resultHtml = `
+            <div style="border: 1px solid ${borderColor}; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: ${bgColor};">
+                <h5 style="margin: 0 0 8px 0; color: ${titleColor};">${title} - ${deviceName}</h5>
+        `;
+        
+        // Show update results
+        if (result.updateResults && result.updateResults.length > 0) {
+            resultHtml += `<div style="margin-bottom: 10px;"><strong>Update Results:</strong><ul style="margin: 5px 0; padding-left: 20px; font-size: 13px;">`;
+            result.updateResults.forEach(updateResult => {
+                if (updateResult.success) {
+                    resultHtml += `<li style="color: #2e7d32;">✅ ${updateResult.type} update sent successfully</li>`;
+                } else {
+                    resultHtml += `<li style="color: #d32f2f;">❌ ${updateResult.type} update failed: ${updateResult.error}</li>`;
                 }
             });
-            
-            return updates;
+            resultHtml += `</ul></div>`;
         }
-
-        // Update each device
-        for (let i = 0; i < selectedDevices.length; i++) {
-            const device = selectedDevices[i];
-            const progressPercent = (i / selectedDevices.length) * 100;
-            
-            progressBar.style.width = `${progressPercent}%`;
-            progressText.textContent = `Updating ${device.deviceName} (${i + 1}/${selectedDevices.length})...`;
-            
-            try {
-                const configUpdates = getRequiredUpdates(device.issues);
+        
+        // Show verification results
+        if (result.verification && result.verification.verificationResults && result.verification.verificationResults.length > 0) {
+            resultHtml += `<div><strong>Verification Results:</strong><ul style="margin: 5px 0; padding-left: 20px; font-size: 13px;">`;
+            result.verification.verificationResults.forEach(verification => {
+                const icon = verification.verified ? '✅' : '❌';
+                const color = verification.verified ? '#2e7d32' : '#d32f2f';
+                const status = verification.verified ? 'VERIFIED' : 'NOT APPLIED';
                 
-                const response = await fetch(`/api/clients/${CLIENT_HANDLE}/update-config`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        deviceId: device.deviceId,
-                        configUpdates
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const result = await response.json();
-                
-                // Display results for this device
-                let resultHtml = `
-                    <div style="border: 1px solid #4caf50; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #e8f5e8;">
-                        <h5 style="margin: 0 0 8px 0; color: #2e7d32;">✅ ${device.deviceName}</h5>
-                        <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+                resultHtml += `
+                    <li style="color: ${color}; margin-bottom: 4px;">
+                        ${icon} <strong>${verification.type}:</strong> ${status}<br>
+                        <small style="color: #666; margin-left: 20px;">
+                            Expected: ${verification.expected} | 
+                            Actual: ${verification.actual}
+                        </small>
+                    </li>
                 `;
-                
-                result.results.forEach(updateResult => {
-                    if (updateResult.success) {
-                        resultHtml += `<li style="color: #2e7d32;">✅ ${updateResult.type} updated successfully</li>`;
-                    } else {
-                        resultHtml += `<li style="color: #d32f2f;">❌ ${updateResult.type} failed: ${updateResult.error}</li>`;
-                    }
-                });
-                
-                resultHtml += `</ul></div>`;
-                resultsContainer.innerHTML += resultHtml;
-                
-            } catch (error) {
-                const errorHtml = `
-                    <div style="border: 1px solid #d32f2f; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #ffebee;">
-                        <h5 style="margin: 0 0 8px 0; color: #d32f2f;">❌ ${device.deviceName}</h5>
-                        <p style="margin: 0; font-size: 13px; color: #d32f2f;">Failed to update: ${error.message}</p>
-                    </div>
-                `;
-                resultsContainer.innerHTML += errorHtml;
+            });
+            resultHtml += `</ul></div>`;
+            
+            // Overall verification status
+            if (result.verification.allVerified) {
+                resultHtml += `<div style="margin-top: 8px; padding: 6px; background: #e8f5e8; border-radius: 3px; color: #2e7d32; font-weight: bold;">🎉 All changes verified successfully!</div>`;
+            } else {
+                resultHtml += `<div style="margin-top: 8px; padding: 6px; background: #ffebee; border-radius: 3px; color: #d32f2f; font-weight: bold;">⚠️ Some changes may not have applied correctly. Please check device manually.</div>`;
+            }
+            
+            // Show fallback information if used
+            if (result.fallbackUsed) {
+                resultHtml += `<div style="margin-top: 8px; padding: 6px; background: #fff3e0; border-radius: 3px; color: #f57c00; font-weight: bold;">🔄 Fallback used: ${result.fallbackUsed} (SignJet app may not be available on this device)</div>`;
             }
         }
-
-        // Complete progress
-        progressBar.style.width = '100%';
-        progressText.innerHTML = '<span style="color: #4caf50; font-weight: bold;">✅ Configuration Updates Complete!</span>';
         
-        // Add option to re-run validation
-        resultsContainer.innerHTML += `
-            <div style="text-align: center; margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 5px;">
-                <p style="margin: 0 0 10px 0;">🔄 Configuration updates complete! You can now re-run the full validation to verify the changes.</p>
-                <button onclick="document.getElementById('runConfigCheck').click()" 
-                        style="background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-                    ⚙️ Re-run Full Validation
-                </button>
-            </div>
-        `;
-    };
+        if (result.verification && result.verification.error) {
+            resultHtml += `<div style="margin-top: 8px; padding: 6px; background: #ffebee; border-radius: 3px; color: #d32f2f;">⚠️ Verification failed: ${result.verification.error}</div>`;
+        }
+        
+        resultHtml += `</div>`;
+        return resultHtml;
+    }
+
+    // Helper function to determine required config updates (needed by fixSingleDevice)
+    function getRequiredUpdates(issues) {
+        const updates = {};
+        
+        issues.forEach(issue => {
+            switch (issue.type) {
+                case 'timeZone':
+                    updates.timeZone = 'America/Chicago';
+                    break;
+                case 'contentSource':
+                    updates.contentSource = 'com.digitaltouchsystems.snap';
+                    break;
+                case 'defaultContentSource':
+                    updates.defaultContentSource = 'com.digitaltouchsystems.snap';
+                    updates.fallbackDefaultContentSource = 'CUSTOM';
+                    break;
+                case 'powerSettings':
+                    updates.powerSettings = { signalDetection: false };
+                    break;
+                case 'powerSchedule':
+                    updates.powerState = 'ON';
+                    break;
+            }
+        });
+        
+        return updates;
+    }
+
+    window.updateSelectedValidationConfigurations = window.applySmartConfigurationFixes;
 
     // Function to apply recommended settings corrections to selected devices
     window.applyRecommendedSettingsCorrections = async function() {
@@ -1417,7 +1536,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         updates.contentSource = 'com.digitaltouchsystems.snap';
                         break;
                     case 'defaultContentSource':
-                        updates.defaultContentSource = 'HDMI1';
+                        updates.defaultContentSource = 'com.digitaltouchsystems.snap';
+                        updates.fallbackDefaultContentSource = 'CUSTOM';
                         break;
                     case 'powerSettings':
                         updates.powerSettings = { signalDetection: false };
@@ -1500,5 +1620,213 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             </div>
         `;
+    };
+
+    // NEW: Helper function to apply configuration fixes to multiple devices
+    async function applyConfigurationFixes(devices, progressBar, progressText, resultsContainer, startProgress, totalDevices) {
+        for (let i = 0; i < devices.length; i++) {
+            const device = devices[i];
+            const progressPercent = ((startProgress + i + 1) / totalDevices) * 80; // Leave 20% for final steps
+            
+            progressBar.style.width = `${progressPercent}%`;
+            progressText.textContent = `Updating ${device.deviceName} (${i + 1}/${devices.length})...`;
+            
+            try {
+                const configUpdates = getRequiredUpdates(device.issues);
+                
+                const response = await fetch(`/api/clients/${CLIENT_HANDLE}/update-config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        deviceId: device.deviceId,
+                        configUpdates
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                resultsContainer.innerHTML += formatDeviceUpdateResult(device.deviceName, result.results, '🔧 Configuration Updates');
+                
+            } catch (error) {
+                resultsContainer.innerHTML += `
+                    <div style="border: 1px solid #d32f2f; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #ffebee;">
+                        <h5 style="margin: 0 0 8px 0; color: #d32f2f;">❌ ${device.deviceName}</h5>
+                        <p style="margin: 0; font-size: 13px; color: #d32f2f;">Failed to update: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // NEW: Helper function to apply recommended settings fixes
+    async function applyRecommendedSettingsFixes(deviceIds, progressBar, progressText, resultsContainer, startProgress, totalDevices) {
+        const progressPercent = ((startProgress + deviceIds.length) / totalDevices) * 80;
+        progressBar.style.width = `${progressPercent}%`;
+        
+        const response = await fetch(`/api/clients/${CLIENT_HANDLE}/apply-recommended-settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceIds })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            result.updatedDevices.forEach(device => {
+                const statusIcon = device.recommendedSettingsCompliant ? '✅' : '⚠️';
+                const statusText = device.recommendedSettingsCompliant ? 'Compliant' : `${device.remainingWarnings} warnings remaining`;
+                
+                resultsContainer.innerHTML += `
+                    <div style="border: 1px solid #4caf50; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #e8f5e8;">
+                        <h5 style="margin: 0 0 8px 0; color: #2e7d32;">⚡ Recommended Settings - ${device.alias || device.id}</h5>
+                        <p style="margin: 0; font-size: 13px; color: #2e7d32;">${statusIcon} ${statusText}</p>
+                    </div>
+                `;
+            });
+        }
+    }
+
+    // NEW: Helper function to format device update results
+    function formatDeviceUpdateResult(deviceName, results, title) {
+        let resultHtml = `
+            <div style="border: 1px solid #4caf50; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #e8f5e8;">
+                <h5 style="margin: 0 0 8px 0; color: #2e7d32;">${title} - ${deviceName}</h5>
+                <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
+        `;
+        
+        results.forEach(updateResult => {
+            if (updateResult.success) {
+                resultHtml += `<li style="color: #2e7d32;">✅ ${updateResult.type} updated successfully</li>`;
+            } else {
+                resultHtml += `<li style="color: #d32f2f;">❌ ${updateResult.type} failed: ${updateResult.error}</li>`;
+            }
+        });
+        
+        resultHtml += `</ul></div>`;
+        return resultHtml;
+    }
+
+    // NEW: Helper function to determine required config updates (reusable version)
+    function getRequiredUpdates(issues) {
+        const updates = {};
+        
+        issues.forEach(issue => {
+            switch (issue.type) {
+                case 'timeZone':
+                    updates.timeZone = 'America/Chicago';
+                    break;
+                case 'contentSource':
+                    updates.contentSource = 'com.digitaltouchsystems.snap';
+                    break;
+                case 'defaultContentSource':
+                    updates.defaultContentSource = 'com.digitaltouchsystems.snap';
+                    updates.fallbackDefaultContentSource = 'CUSTOM';
+                    break;
+                case 'powerSettings':
+                    updates.powerSettings = { signalDetection: false };
+                    break;
+                case 'powerSchedule':
+                    updates.powerState = 'ON';
+                    break;
+            }
+        });
+        
+        return updates;
+    }
+
+    // NEW: Individual device fix function
+    window.fixSingleDevice = async function(deviceId, deviceName, issues) {
+        if (!confirm(`Fix all configuration issues for ${deviceName}?`)) {
+            return;
+        }
+
+        // Show progress
+        const progressContainer = document.getElementById('validationUpdateProgress');
+        progressContainer.style.display = 'block';
+        
+        const progressBar = document.getElementById('validationUpdateProgressBar');
+        const progressText = document.getElementById('validationUpdateProgressText');
+        const resultsContainer = document.getElementById('validationUpdateResults');
+        
+        progressText.textContent = `Fixing ${deviceName}...`;
+        resultsContainer.innerHTML = '';
+        progressBar.style.width = '10%';
+
+        try {
+            const hasConfigIssues = issues.some(issue => 
+                ['timeZone', 'contentSource', 'defaultContentSource', 'powerSettings', 'powerSchedule'].includes(issue.type)
+            );
+            const hasRecommendedIssues = issues.some(issue => 
+                issue.type === 'recommendedSettings' || issue.type === 'recommendedSettingsWarning'
+            );
+            
+            let resultHtml = '';
+            
+            // Apply configuration fixes with verification
+            if (hasConfigIssues) {
+                progressText.textContent = `Applying and verifying configuration fixes for ${deviceName}...`;
+                progressBar.style.width = '30%';
+                
+                const configUpdates = getRequiredUpdates(issues);
+                const response = await fetch(`/api/clients/${CLIENT_HANDLE}/update-config-verified`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceId, configUpdates })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Configuration update failed: HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                resultHtml += formatVerifiedUpdateResult(deviceName, result, '🔧 Configuration Updates');
+            }
+            
+            // Apply recommended settings fixes
+            if (hasRecommendedIssues) {
+                progressText.textContent = `Applying recommended settings to ${deviceName}...`;
+                progressBar.style.width = '70%';
+                
+                const response = await fetch(`/api/clients/${CLIENT_HANDLE}/apply-recommended-settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deviceIds: [deviceId] })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Recommended settings update failed: HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    resultHtml += `
+                        <div style="border: 1px solid #4caf50; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #e8f5e8;">
+                            <h5 style="margin: 0 0 8px 0; color: #2e7d32;">⚡ Recommended Settings - ${deviceName}</h5>
+                            <p style="margin: 0; font-size: 13px; color: #2e7d32;">✅ Recommended settings applied successfully</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            progressBar.style.width = '100%';
+            progressText.innerHTML = `<span style="color: #4caf50; font-weight: bold;">✅ ${deviceName} Fixed Successfully!</span>`;
+            resultsContainer.innerHTML = resultHtml;
+            
+        } catch (error) {
+            progressText.innerHTML = `<span style="color: #d32f2f;">❌ Error fixing ${deviceName}: ${error.message}</span>`;
+            resultsContainer.innerHTML = `
+                <div style="border: 1px solid #d32f2f; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #ffebee;">
+                    <h5 style="margin: 0 0 8px 0; color: #d32f2f;">❌ ${deviceName}</h5>
+                    <p style="margin: 0; font-size: 13px; color: #d32f2f;">Failed to fix: ${error.message}</p>
+                </div>
+            `;
+        }
     };
 });

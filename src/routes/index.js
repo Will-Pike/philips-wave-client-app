@@ -169,6 +169,34 @@ module.exports = function(app) {
         }
     });
 
+    // NEW: Update device configuration with verification
+    app.post('/api/clients/:clientHandle/update-config-verified', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { deviceId, configUpdates } = req.body;
+        
+        try {
+            const configUpdateController = new ConfigUpdateController();
+            const result = await configUpdateController.updateAndVerifyDeviceConfiguration(clientHandle, deviceId, configUpdates);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // NEW: Verify device configuration without updating
+    app.post('/api/clients/:clientHandle/verify-config', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { deviceId, expectedConfig } = req.body;
+        
+        try {
+            const configUpdateController = new ConfigUpdateController();
+            const verification = await configUpdateController.verifyDeviceConfiguration(clientHandle, deviceId, expectedConfig);
+            res.json(verification);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // Batch update multiple devices
     app.post('/api/clients/:clientHandle/batch-update-config', async (req, res) => {
         const { clientHandle } = req.params;

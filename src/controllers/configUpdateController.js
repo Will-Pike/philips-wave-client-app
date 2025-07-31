@@ -240,6 +240,210 @@ class ConfigUpdateController extends ClientController {
         
         return results;
     }
+
+    // NEW: Verify that configuration changes were actually applied
+    async verifyDeviceConfiguration(clientHandle, deviceId, expectedUpdates) {
+        const query = `
+            query {
+                display(id: "${deviceId}") {
+                    id
+                    alias
+                    timeZone { 
+                        reported 
+                    }
+                    powerSettings { 
+                        reported { 
+                            signalDetection 
+                        } 
+                    }
+                    contentSource {
+                        current {
+                            reported {
+                                ... on InputContentSource { source }
+                                ... on AppContentSource { applicationId }
+                            }
+                        }
+                        default {
+                            reported {
+                                ... on InputContentSource { source }
+                                ... on AppContentSource { applicationId }
+                            }
+                            desired {
+                                ... on InputContentSource { source }
+                                ... on AppContentSource { applicationId }
+                            }
+                        }
+                    }
+                    power {
+                        reported
+                        desired
+                    }
+                }
+            }
+        `;
+
+        try {
+            const data = await waveGraphQL(query);
+            const device = data?.display;
+            
+            if (!device) {
+                throw new Error(`Device ${deviceId} not found`);
+            }
+
+            const verification = {
+                deviceId,
+                deviceName: device.alias || deviceId,
+                verificationResults: [],
+                allVerified: true
+            };
+
+            // Verify time zone
+            if (expectedUpdates.timeZone) {
+                const currentTimeZone = device.timeZone?.reported;
+                const isCorrect = currentTimeZone === expectedUpdates.timeZone;
+                verification.verificationResults.push({
+                    type: 'timeZone',
+                    expected: expectedUpdates.timeZone,
+                    actual: currentTimeZone || 'Not Set',
+                    verified: isCorrect
+                });
+                if (!isCorrect) verification.allVerified = false;
+            }
+
+            // Verify content source (current)
+            if (expectedUpdates.contentSource) {
+                const contentSource = device.contentSource?.current?.reported;
+                let currentContentSource = 'Not Set';
+                
+                if (contentSource?.applicationId) {
+                    currentContentSource = contentSource.applicationId;
+                } else if (contentSource?.source) {
+                    currentContentSource = contentSource.source;
+                }
+                
+                const isCorrect = currentContentSource === expectedUpdates.contentSource;
+                verification.verificationResults.push({
+                    type: 'contentSource',
+                    expected: expectedUpdates.contentSource,
+                    actual: currentContentSource,
+                    verified: isCorrect
+                });
+                if (!isCorrect) verification.allVerified = false;
+            }
+
+            // Verify default content source
+            if (expectedUpdates.defaultContentSource) {
+                // Check both reported and desired default content sources
+                const defaultReported = device.contentSource?.default?.reported;
+                const defaultDesired = device.contentSource?.default?.desired;
+                
+                let currentDefaultSource = 'Not Set';
+                
+                // Prefer desired over reported if available
+                const defaultSource = defaultDesired || defaultReported;
+                
+                if (defaultSource?.applicationId) {
+                    currentDefaultSource = defaultSource.applicationId;
+                } else if (defaultSource?.source) {
+                    currentDefaultSource = defaultSource.source;
+                }
+                
+                // Check if it matches expected or fallback
+                const isCorrect = currentDefaultSource === expectedUpdates.defaultContentSource || 
+                                 currentDefaultSource === expectedUpdates.fallbackDefaultContentSource;
+                
+                verification.verificationResults.push({
+                    type: 'defaultContentSource',
+                    expected: expectedUpdates.defaultContentSource,
+                    actual: currentDefaultSource,
+                    verified: isCorrect
+                });
+                if (!isCorrect) verification.allVerified = false;
+            }
+
+            // Verify signal detection (power settings)
+            if (expectedUpdates.powerSettings?.signalDetection !== undefined) {
+                const currentSignalDetection = device.powerSettings?.reported?.signalDetection;
+                const expectedSignalDetection = expectedUpdates.powerSettings.signalDetection;
+                const isCorrect = currentSignalDetection === expectedSignalDetection;
+                
+                verification.verificationResults.push({
+                    type: 'signalDetection',
+                    expected: expectedSignalDetection,
+                    actual: currentSignalDetection !== undefined ? currentSignalDetection : 'Not Set',
+                    verified: isCorrect
+                });
+                if (!isCorrect) verification.allVerified = false;
+            }
+
+            // Verify power state
+            if (expectedUpdates.powerState) {
+                const currentPowerState = device.power?.desired || device.power?.reported;
+                const isCorrect = currentPowerState === expectedUpdates.powerState;
+                verification.verificationResults.push({
+                    type: 'powerState',
+                    expected: expectedUpdates.powerState,
+                    actual: currentPowerState || 'Not Set',
+                    verified: isCorrect
+                });
+                if (!isCorrect) verification.allVerified = false;
+            }
+
+            return verification;
+
+        } catch (error) {
+            console.error(`Error verifying device configuration for ${deviceId}:`, error);
+            return {
+                deviceId,
+                deviceName: deviceId,
+                verificationResults: [],
+                allVerified: false,
+                error: error.message
+            };
+        }
+    }
+
+    // NEW: Enhanced update with verification and longer wait time
+    async updateAndVerifyDeviceConfiguration(clientHandle, deviceId, configUpdates) {
+        console.log(`Starting update and verification for device ${deviceId}`);
+        
+        // Step 1: Apply the configuration updates
+        const updateResults = await this.updateDeviceConfiguration(clientHandle, deviceId, configUpdates);
+        
+        // Step 2: Wait longer for changes to propagate (especially for default content source)
+        console.log('Waiting 5 seconds for changes to propagate...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Step 3: Verify the changes were applied
+        const verification = await this.verifyDeviceConfiguration(clientHandle, deviceId, configUpdates);
+        
+        // Step 4: If default content source failed and we were trying SignJet, try CUSTOM as fallback
+        if (!verification.allVerified && configUpdates.defaultContentSource === 'com.digitaltouchsystems.snap') {
+            console.log('SignJet app default failed, trying CUSTOM as fallback...');
+            
+            const fallbackUpdates = { ...configUpdates, defaultContentSource: 'CUSTOM' };
+            delete fallbackUpdates.fallbackDefaultContentSource;
+            
+            const fallbackResults = await this.updateDeviceConfiguration(clientHandle, deviceId, fallbackUpdates);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const fallbackVerification = await this.verifyDeviceConfiguration(clientHandle, deviceId, fallbackUpdates);
+            
+            return {
+                updateResults: [...updateResults, ...fallbackResults],
+                verification: fallbackVerification,
+                deviceId,
+                success: fallbackResults.every(r => r.success) && fallbackVerification.allVerified,
+                fallbackUsed: 'CUSTOM'
+            };
+        }
+        
+        return {
+            updateResults,
+            verification,
+            deviceId,
+            success: updateResults.every(r => r.success) && verification.allVerified
+        };
+    }
     
     // Get the standard Kwik Trip configuration
     getStandardConfig() {
