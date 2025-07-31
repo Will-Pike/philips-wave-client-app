@@ -28,7 +28,6 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
     .filter(w => w.presence && w.presence.connected)
     .forEach(w => {
       const sn = extractStoreNumber(w.site && w.site.name);
-    //   console.log('Wave device site.name:', w.site && w.site.name, '-> store:', sn);
       if (!sn) return;
       if (!waveByStore[sn]) waveByStore[sn] = [];
       waveByStore[sn].push({
@@ -39,8 +38,6 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
         model: w.model || w.deviceModel || w.hardwareModel || '', // Try common model field names
       });
     });
-
-//   console.log('waveByStore keys:', Object.keys(waveByStore));
 
   // Read SignJet CSV
   const records = [];
@@ -54,7 +51,6 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
         const status = (row['Status'] || '').toLowerCase().trim();
         const sn = extractStoreNumber(loc);
         if (status === 'offline') {
-        //   console.log('SignJet Location:', loc, '-> store:', sn);
           if (sn && dev) {
             records.push({ 
               store: sn, 
@@ -109,9 +105,6 @@ async function matchSignJetToWave(signjetCsvPath, waveDevices, opts = {}) {
           score: percentScore,
         });
       }
-    } else {
-      // Optionally keep this log for unmatched devices:
-      // console.log(`NO MATCH: "${rec.signjetName}" (store ${rec.store})`);
     }
   }
 

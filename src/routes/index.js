@@ -1,6 +1,7 @@
 const ClientController = require('../controllers/clientController');
 const authController = require('../controllers/authController');
 const ConfigCheckController = require('../controllers/configCheckController');
+const ConfigUpdateController = require('../controllers/configUpdateController');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const { matchSignJetToWave } = require('./matcher');
@@ -90,6 +91,134 @@ module.exports = function(app) {
             res.json(result);
         } catch (error) {
             res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Streaming config check that sends real-time batch results
+    app.post('/api/clients/:clientHandle/config-check-streaming', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { displayIds, checks } = req.body;
+        
+        try {
+            // Set up SSE headers
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Cache-Control'
+            });
+            
+            const configController = new ConfigCheckController();
+            
+            // Callback function to send batch results to client
+            const onBatchComplete = async (batchResult) => {
+                const data = JSON.stringify({
+                    type: 'batch-complete',
+                    data: batchResult
+                });
+                res.write(`data: ${data}\n\n`);
+            };
+            
+            // Send initial start message
+            res.write(`data: ${JSON.stringify({type: 'start', totalDevices: displayIds.length})}\n\n`);
+            
+            // Process the streaming config check
+            const finalResult = await configController.streamingConfigCheck(
+                clientHandle, 
+                displayIds, 
+                checks, 
+                onBatchComplete
+            );
+            
+            // Send final completion message
+            res.write(`data: ${JSON.stringify({type: 'complete', data: finalResult})}\n\n`);
+            res.end();
+            
+        } catch (error) {
+            // Send error message
+            res.write(`data: ${JSON.stringify({type: 'error', error: error.message})}\n\n`);
+            res.end();
+        }
+    });
+
+    // Get test devices from Triggerpoint Media HQ
+    app.get('/api/clients/:clientHandle/test-devices', async (req, res) => {
+        const { clientHandle } = req.params;
+        
+        try {
+            const configUpdateController = new ConfigUpdateController();
+            const testDevices = await configUpdateController.getTestDevices(clientHandle);
+            res.json(testDevices);
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Update device configuration
+    app.post('/api/clients/:clientHandle/update-config', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { deviceId, configUpdates } = req.body;
+        
+        try {
+            const configUpdateController = new ConfigUpdateController();
+            const results = await configUpdateController.updateDeviceConfiguration(clientHandle, deviceId, configUpdates);
+            res.json({ success: true, results });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Batch update multiple devices
+    app.post('/api/clients/:clientHandle/batch-update-config', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { updates } = req.body; // Array of { deviceId, configUpdates }
+        
+        try {
+            const configUpdateController = new ConfigUpdateController();
+            const allResults = [];
+            
+            for (const update of updates) {
+                const results = await configUpdateController.updateDeviceConfiguration(
+                    clientHandle, 
+                    update.deviceId, 
+                    update.configUpdates
+                );
+                allResults.push({
+                    deviceId: update.deviceId,
+                    results
+                });
+            }
+            
+            res.json({ success: true, deviceResults: allResults });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // Apply recommended settings corrections to devices
+    app.post('/api/clients/:clientHandle/apply-recommended-settings', async (req, res) => {
+        const { clientHandle } = req.params;
+        const { deviceIds } = req.body; // Array of device IDs
+        
+        try {
+            const configCheckController = new ConfigCheckController();
+            const results = await configCheckController.applyRecommendedSettingsCorrections(clientHandle, deviceIds);
+            
+            res.json({
+                success: results.success,
+                totalDevicesUpdated: results.totalDevicesUpdated,
+                updatedDevices: results.updatedDevices,
+                error: results.error
+            });
+        } catch (error) {
+            console.error('Error applying recommended settings:', error);
+            res.status(500).json({ 
+                success: false,
+                error: error.message,
+                totalDevicesUpdated: 0,
+                updatedDevices: []
+            });
         }
     });
 

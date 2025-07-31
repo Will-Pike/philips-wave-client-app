@@ -217,9 +217,6 @@
             <div id="configCheckTabContent" class="tab-content disabled">
                 <div class="section">
                     <label>Configuration Validation Settings:</label>
-                    <!-- <p style="color: #2196f3; font-size: 14px; margin: 5px 0 15px 0;">
-                        ✅ <strong>Validation Mode:</strong> Checking devices against Kwik Trip standards based on real device data.
-                    </p> -->
                     <div style="margin: 10px 0;">
                         <label style="display: block; margin-bottom: 8px;">
                             <input type="checkbox" id="checkPowerSchedules" checked style="margin-right: 8px;" />
@@ -237,6 +234,10 @@
                             <input type="checkbox" id="checkPowerSettings" checked style="margin-right: 8px;" />
                             Validate Power Settings (Signal Detection OFF or not set)
                         </label>
+                        <label style="display: block; margin-bottom: 8px;">
+                            <input type="checkbox" id="checkRecommendedSettings" checked style="margin-right: 8px;" />
+                            Validate Recommended Settings (Power Mode and other optimizations)
+                        </label>
                     </div>
                     <button id="runConfigCheck" style="margin-top: 10px;" disabled>Validate Device Configurations</button>
                 </div>
@@ -247,7 +248,7 @@
                 <img src="https://triggerpointmedia.s3.us-east-2.amazonaws.com/Logos/TPM+Powered+By+logo+.png" alt="Powered by TPM" class="powered-by-logo">
             </div>
             <p class="footer">© 2025 Trigger Point Media</p>
-            <p class="footer">Version: 1.1.0</p>
+            <p class="footer">Version: 1.2.0</p>
         </div>
     </div>
     <div id="loadingSpinner" class="spinner" style="display:none;">
